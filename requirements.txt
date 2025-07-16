@@ -1,0 +1,14 @@
+streamlit
+python-pptx
+pillow
+openai
+python-dotenv
+watchdog
+reportlab
+PyPDF2
+pytesseract
+pdf2image
+scikit-learn
+numpy
+sentence-transformers
+faiss-cpu
