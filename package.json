@@ -1,0 +1,53 @@
+{
+  "name": "slidegenie",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered academic presentation generator",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd slidegenie-backend && make run",
+    "dev:frontend": "cd slidegenie-frontend && npm run dev",
+    "install": "npm run install:frontend && npm run install:backend",
+    "install:frontend": "cd slidegenie-frontend && npm install",
+    "install:backend": "cd slidegenie-backend && poetry install",
+    "docker:up": "cd slidegenie-backend && make docker-up",
+    "docker:down": "cd slidegenie-backend && make docker-down",
+    "docker:logs": "cd slidegenie-backend && make docker-logs",
+    "setup": "npm run docker:up && npm run setup:backend && npm run install",
+    "setup:backend": "cd slidegenie-backend && make migrate",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd slidegenie-backend && make test",
+    "test:frontend": "cd slidegenie-frontend && npm test",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd slidegenie-backend && make lint",
+    "lint:frontend": "cd slidegenie-frontend && npm run lint",
+    "format": "npm run format:backend && npm run format:frontend",
+    "format:backend": "cd slidegenie-backend && make format",
+    "format:frontend": "cd slidegenie-frontend && npm run format",
+    "clean": "npm run clean:backend && npm run clean:frontend",
+    "clean:backend": "cd slidegenie-backend && make clean",
+    "clean:frontend": "cd slidegenie-frontend && rm -rf node_modules .next"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/slidegenie.git"
+  },
+  "keywords": [
+    "ai",
+    "presentations",
+    "academic",
+    "research",
+    "fastapi",
+    "nextjs",
+    "monorepo"
+  ],
+  "author": "SlideGenie Team",
+  "license": "UNLICENSED"
+}
