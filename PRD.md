@@ -532,52 +532,56 @@ Academic presentations are a critical component of research dissemination, yet t
 
 **Frontend Stack**
 ```
-- Framework: Next.js 14+
-- Language: TypeScript 5.0+
+- Framework: Next.js 15.4.5
+- Language: TypeScript 5.8.3
 - State Management: Zustand
-- UI Components: Radix UI + Tailwind CSS
-- Rich Text Editor: Tiptap
-- PDF Rendering: PDF.js
-- Charts/Visualizations: D3.js
+- UI Components: Radix UI + Tailwind CSS 4.1
+- Authentication: NextAuth.js 4.24
+- Animations: Framer Motion
+- Icons: Lucide React
 - Form Handling: React Hook Form + Zod
-- API Client: Axios with React Query
-- Testing: Jest + React Testing Library
+- API Client: Axios with React Query (TanStack Query)
+- Real-time: Socket.io Client
+- File Upload: React Dropzone
+- Notifications: React Hot Toast + Sonner
 ```
 
 **Backend Stack**
 ```
 - Framework: FastAPI (Python 3.11+)
-- Database: PostgreSQL 15 + pgvector
-- Cache: Redis 7.0
-- Queue: Celery + RabbitMQ
-- Storage: S3-compatible (AWS S3/MinIO)
-- Search: Elasticsearch 8.0
-- ML Models: Hugging Face Transformers
-- PDF Processing: PyPDF2 + pdfplumber
-- Testing: Pytest + Factory Boy
+- Database: Supabase (PostgreSQL + pgvector)
+- Cache: Redis 4.2.0-6.0.0
+- Queue: Celery or ARQ (configurable)
+- Storage: Supabase Storage (MinIO for local dev)
+- Search: PostgreSQL Full-Text Search
+- Authentication: JWT + OAuth (Google, Microsoft)
+- PDF Processing: pdfplumber + PyMuPDF
+- Document Processing: python-docx, ReportLab, WeasyPrint
+- Testing: Pytest
 ```
 
 **AI/ML Infrastructure**
 ```
-- Primary LLM: Claude 3 API
+- Primary LLM: Claude 3.5 (Sonnet, Haiku, Opus)
 - Fallback LLM: OpenAI GPT-4
-- Embeddings: OpenAI Ada-2
-- Vector Store: pgvector
-- ML Framework: PyTorch 2.0
-- Model Serving: TorchServe
-- Prompt Management: LangChain
+- Structured Output: Instructor library
+- Token Counting: tiktoken
+- Vector Store: pgvector (via Supabase)
+- API Integration: Direct API calls
+- Response Caching: Redis (7-day TTL)
 ```
 
 **DevOps & Infrastructure**
 ```
-- Containerization: Docker
-- Orchestration: Kubernetes
-- CI/CD: GitHub Actions
-- Monitoring: Prometheus + Grafana
-- Logging: ELK Stack
-- APM: DataDog
-- Cloud Provider: AWS
-- CDN: CloudFlare
+- Containerization: Docker (Multi-stage builds)
+- Orchestration: Docker Compose
+- CI/CD: GitHub Actions (planned)
+- Monitoring: Prometheus (optional)
+- Logging: structlog
+- Error Tracking: Sentry (optional)
+- Database: Supabase (hosted PostgreSQL)
+- Storage: Supabase Storage
+- Development: Docker Compose with PostgreSQL, Redis, MinIO
 ```
 
 ### API Design
@@ -761,7 +765,7 @@ CREATE TABLE generation_jobs (
 
 **Data Security**
 - Encryption keys rotated monthly
-- Secure key management (AWS KMS)
+- Secure key management (environment variables)
 - Database connection pooling with SSL
 - Encrypted backups
 - Audit logging for all data access
