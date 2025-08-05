@@ -1,0 +1,151 @@
+name: 'Blue-Green Deployment'
+description: 'Deploy application using blue-green strategy'
+inputs:
+  environment:
+    description: 'Deployment environment'
+    required: true
+  image-tag:
+    description: 'Docker image tag'
+    required: true
+  kube-config:
+    description: 'Kubernetes config'
+    required: true
+  deploy-key:
+    description: 'Deployment key'
+    required: true
+  canary-percentage:
+    description: 'Canary deployment percentage'
+    required: false
+    default: '0'
+  canary-duration:
+    description: 'Canary deployment duration'
+    required: false
+    default: '0'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup kubectl
+      shell: bash
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+
+    - name: Configure kubectl
+      shell: bash
+      run: |
+        echo "${{ inputs.kube-config }}" | base64 -d > /tmp/kubeconfig
+        export KUBECONFIG=/tmp/kubeconfig
+
+    - name: Check current deployment
+      id: current
+      shell: bash
+      run: |
+        CURRENT_COLOR=$(kubectl get service slidegenie-active -o jsonpath='{.spec.selector.color}' 2>/dev/null || echo "blue")
+        if [ "$CURRENT_COLOR" = "blue" ]; then
+          NEW_COLOR="green"
+        else
+          NEW_COLOR="blue"
+        fi
+        echo "current-color=$CURRENT_COLOR" >> $GITHUB_OUTPUT
+        echo "new-color=$NEW_COLOR" >> $GITHUB_OUTPUT
+
+    - name: Deploy to new environment
+      shell: bash
+      run: |
+        # Update the deployment with new image
+        kubectl set image deployment/slidegenie-${{ steps.current.outputs.new-color }} \
+          app=${{ inputs.image-tag }} \
+          -n ${{ inputs.environment }}
+        
+        # Wait for rollout to complete
+        kubectl rollout status deployment/slidegenie-${{ steps.current.outputs.new-color }} \
+          -n ${{ inputs.environment }} \
+          --timeout=10m
+
+    - name: Run health checks
+      id: health
+      shell: bash
+      run: |
+        # Wait for pods to be ready
+        kubectl wait --for=condition=ready pod \
+          -l app=slidegenie,color=${{ steps.current.outputs.new-color }} \
+          -n ${{ inputs.environment }} \
+          --timeout=5m
+        
+        # Run health check script
+        ${{ github.action_path }}/../../deployment/scripts/health-check.sh \
+          ${{ inputs.environment }} \
+          ${{ steps.current.outputs.new-color }}
+
+    - name: Canary deployment
+      if: inputs.canary-percentage != '0'
+      shell: bash
+      run: |
+        # Update service to split traffic
+        kubectl patch service slidegenie-active \
+          -n ${{ inputs.environment }} \
+          --type merge \
+          -p '{"spec":{"selector":{"color":"'${{ steps.current.outputs.new-color }}'"}}}'
+        
+        # Apply canary traffic split
+        ${{ github.action_path }}/../../deployment/scripts/canary-deploy.sh \
+          ${{ inputs.environment }} \
+          ${{ steps.current.outputs.current-color }} \
+          ${{ steps.current.outputs.new-color }} \
+          ${{ inputs.canary-percentage }}
+        
+        # Monitor canary deployment
+        sleep ${{ inputs.canary-duration }}
+        
+        # Check canary metrics
+        CANARY_HEALTH=$(${{ github.action_path }}/../../deployment/scripts/check-canary-metrics.sh \
+          ${{ inputs.environment }} \
+          ${{ steps.current.outputs.new-color }})
+        
+        if [ "$CANARY_HEALTH" != "healthy" ]; then
+          echo "Canary deployment failed health checks"
+          exit 1
+        fi
+
+    - name: Switch traffic
+      shell: bash
+      run: |
+        # Update active service to point to new color
+        kubectl patch service slidegenie-active \
+          -n ${{ inputs.environment }} \
+          --type merge \
+          -p '{"spec":{"selector":{"color":"'${{ steps.current.outputs.new-color }}'"}}}'
+        
+        # Verify traffic switch
+        sleep 10
+        ACTIVE_COLOR=$(kubectl get service slidegenie-active -o jsonpath='{.spec.selector.color}')
+        if [ "$ACTIVE_COLOR" != "${{ steps.current.outputs.new-color }}" ]; then
+          echo "Traffic switch failed"
+          exit 1
+        fi
+
+    - name: Verify deployment
+      shell: bash
+      run: |
+        ${{ github.action_path }}/../../deployment/scripts/verify-deployment.sh \
+          ${{ inputs.environment }} \
+          ${{ steps.current.outputs.new-color }}
+
+    - name: Clean up old deployment
+      if: success()
+      shell: bash
+      run: |
+        # Scale down old deployment
+        kubectl scale deployment/slidegenie-${{ steps.current.outputs.current-color }} \
+          --replicas=0 \
+          -n ${{ inputs.environment }}
+
+outputs:
+  active-color:
+    description: 'Active deployment color'
+    value: ${{ steps.current.outputs.new-color }}
+  previous-color:
+    description: 'Previous deployment color'
+    value: ${{ steps.current.outputs.current-color }}

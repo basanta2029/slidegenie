@@ -1,0 +1,349 @@
+# Docker build context optimization for SlideGenie
+# ===============================================
+
+# Version control
+.git
+.gitignore
+.gitattributes
+.gitmodules
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Testing and coverage
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+cover/
+htmlcov/
+.nyc_output
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Documentation
+docs/_build/
+docs/build/
+.readthedocs.yml
+*.md
+!README.md
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+.envrc
+.secrets
+secrets/
+*.pem
+*.key
+*.cert
+*.crt
+
+# Docker and container files
+Dockerfile.*
+!Dockerfile
+!Dockerfile.alpine
+docker-compose*.yml
+!docker-compose.prod.yml
+.dockerignore
+
+# CI/CD and deployment
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+.travis.yml
+.circleci/
+azure-pipelines.yml
+buildspec.yml
+cloudbuild.yaml
+skaffold.yaml
+helm/
+k8s/
+kubernetes/
+
+# Logs and temporary files
+logs/
+*.log
+log/
+tmp/
+temp/
+.tmp/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Redis dump
+dump.rdb
+
+# Operating system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Application specific
+uploads/
+exports/
+storage/
+data/
+backups/
+
+# Development and testing
+test-results/
+screenshots/
+fixtures/large/
+performance/results/
+security/reports/
+
+# Node.js (if any frontend assets)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Static analysis and linting
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.flake8
+.pylintrc
+sonar-project.properties
+
+# Package managers
+Pipfile.lock
+requirements*.txt
+!requirements.txt
+
+# Monitoring and observability
+prometheus/
+grafana/
+jaeger/
+
+# Local development
+local/
+dev/
+scripts/dev/
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Archive files
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.rar
+*.7z
+
+# Large media files (should be in object storage)
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+*.mkv
+
+# Large image files
+*.psd
+*.ai
+*.eps
+*.indd
+
+# Temporary Python files
+*.tmp
+*.temp
+nohup.out
+
+# PyCharm specific
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# VS Code specific
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+.history/
+
+# Emacs specific
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Vim specific
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+
+# Sublime Text specific
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+*.sublime-workspace
+*.sublime-project
+
+# Security scanning results
+trivy-reports/
+security/scan-results/
+vulnerability-reports/
+
+# Performance testing results
+load-test-results/
+benchmark-results/
+
+# Application monitoring
+apm/
+newrelic/
+
+# Build artifacts that shouldn't be in containers
+.build/
+build-artifacts/
+dist-artifacts/
+
+# Local configuration overrides
+config/local/
+settings/local/
+local-config/
+
+# Terraform (if infrastructure as code is included)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraformrc
+terraform.tfvars
+
+# Ansible (if configuration management is included)
+*.retry
+.vault_pass
+
+# Kubernetes secrets and configs (if included)
+secrets.yaml
+configmaps.yaml
+*.kubeconfig
+
+# Make build files
+Makefile.local
+
+# Local scripts that shouldn't be containerized
+scripts/local/
+bin/local/
+
+# Application data that should be mounted as volumes
+app-data/
+user-uploads/
+generated-content/
+
+# Cache directories
+.cache/
+cache/
+.npm/
+.yarn/
+
+# Temporary development databases
+dev.db
+development.db
+test.db
+
+# Local SSL certificates
+ssl/
+certs/local/
+
+# Development Docker overrides
+docker-compose.override.yml
+docker-compose.dev.yml
+docker-compose.local.yml
+
+# Documentation build artifacts
+site/
+docs/site/
+mkdocs/
+
+# Localization files that might be large
+*.mo
+locale/
+
+# Font files that should be handled separately
+fonts/
+*.ttf
+*.otf
+*.woff
+*.woff2
+
+# Development email templates
+templates/dev/
+email-templates/dev/

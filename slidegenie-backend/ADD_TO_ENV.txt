@@ -1,0 +1,11 @@
+# Add these lines to your .env file:
+
+# Supabase Configuration (Get from Supabase Dashboard > Settings > API)
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key-here
+
+# Supabase Storage Configuration
+SUPABASE_STORAGE_BUCKET=documents
+
+# Optional: Update DATABASE_URL to use Supabase PostgreSQL
+# DATABASE_URL=postgresql://postgres:your-password@your-project-ref.supabase.co:5432/postgres

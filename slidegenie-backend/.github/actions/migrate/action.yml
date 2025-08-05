@@ -1,0 +1,126 @@
+name: 'Database Migration'
+description: 'Run database migrations with rollback support'
+inputs:
+  environment:
+    description: 'Deployment environment'
+    required: true
+  database-url:
+    description: 'Database connection URL'
+    required: true
+  rollback-on-failure:
+    description: 'Rollback on migration failure'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install migration tools
+      shell: bash
+      run: |
+        pip install alembic psycopg2-binary sqlalchemy
+
+    - name: Get current migration version
+      id: current-version
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database-url }}
+      run: |
+        CURRENT_VERSION=$(alembic current | grep -oE '[a-f0-9]{12}' | head -1 || echo "none")
+        echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "Current migration version: $CURRENT_VERSION"
+
+    - name: Check pending migrations
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database-url }}
+      run: |
+        echo "Checking for pending migrations..."
+        alembic history -v
+
+    - name: Backup database schema
+      if: inputs.environment == 'production'
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database-url }}
+      run: |
+        # Extract database connection details
+        DB_HOST=$(echo $DATABASE_URL | sed -n 's/.*@\([^:]*\):.*/\1/p')
+        DB_NAME=$(echo $DATABASE_URL | sed -n 's/.*\/\([^?]*\).*/\1/p')
+        
+        # Create schema backup
+        pg_dump --schema-only $DATABASE_URL > /tmp/schema_backup_$(date +%Y%m%d_%H%M%S).sql
+        
+        # Upload backup to S3
+        aws s3 cp /tmp/schema_backup_*.sql s3://slidegenie-backups/${{ inputs.environment }}/migrations/
+
+    - name: Run migrations
+      id: migrate
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database-url }}
+        ALEMBIC_CONFIG: alembic.ini
+      run: |
+        set -e
+        echo "Running database migrations..."
+        
+        # Run migrations with detailed output
+        alembic upgrade head 2>&1 | tee /tmp/migration_output.log
+        
+        # Get new migration version
+        NEW_VERSION=$(alembic current | grep -oE '[a-f0-9]{12}' | head -1)
+        echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "Migration completed. New version: $NEW_VERSION"
+
+    - name: Verify migration
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database-url }}
+      run: |
+        # Run migration verification script
+        python ${{ github.action_path }}/../../deployment/scripts/verify-migration.py \
+          --database-url "${{ inputs.database-url }}" \
+          --expected-version "${{ steps.migrate.outputs.new-version }}"
+
+    - name: Rollback on failure
+      if: failure() && inputs.rollback-on-failure == 'true'
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database-url }}
+      run: |
+        echo "Migration failed. Rolling back to previous version..."
+        
+        if [ "${{ steps.current-version.outputs.version }}" != "none" ]; then
+          alembic downgrade ${{ steps.current-version.outputs.version }}
+          echo "Rolled back to version: ${{ steps.current-version.outputs.version }}"
+        else
+          echo "No previous version to rollback to"
+        fi
+        
+        # Notify about rollback
+        curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+          -H 'Content-type: application/json' \
+          -d '{
+            "text": "Database migration failed and was rolled back",
+            "attachments": [{
+              "color": "danger",
+              "fields": [
+                {"title": "Environment", "value": "'${{ inputs.environment }}'", "short": true},
+                {"title": "From Version", "value": "'${{ steps.current-version.outputs.version }}'", "short": true},
+                {"title": "Failed Version", "value": "'${{ steps.migrate.outputs.new-version }}'", "short": true}
+              ]
+            }]
+          }'
+
+outputs:
+  previous-version:
+    description: 'Previous migration version'
+    value: ${{ steps.current-version.outputs.version }}
+  current-version:
+    description: 'Current migration version'
+    value: ${{ steps.migrate.outputs.new-version }}

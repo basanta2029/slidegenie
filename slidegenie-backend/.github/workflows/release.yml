@@ -1,0 +1,230 @@
+name: Release Management
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.3)'
+        required: true
+      release-type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - hotfix
+
+permissions:
+  contents: write
+  packages: write
+  deployments: write
+
+jobs:
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      previous-version: ${{ steps.version.outputs.previous-version }}
+      release-notes: ${{ steps.notes.outputs.release-notes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION=${{ inputs.version }}
+          fi
+          
+          # Get previous version
+          PREVIOUS_VERSION=$(git describe --tags --abbrev=0 HEAD^ || echo "v0.0.0")
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "previous-version=$PREVIOUS_VERSION" >> $GITHUB_OUTPUT
+          echo "Release version: $VERSION (previous: $PREVIOUS_VERSION)"
+
+      - name: Generate release notes
+        id: notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: commits } = await github.rest.repos.compareCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: '${{ steps.version.outputs.previous-version }}',
+              head: '${{ steps.version.outputs.version }}'
+            });
+            
+            // Categorize commits
+            const features = [];
+            const fixes = [];
+            const breaking = [];
+            const other = [];
+            
+            commits.commits.forEach(commit => {
+              const message = commit.commit.message;
+              if (message.startsWith('feat:')) {
+                features.push(message);
+              } else if (message.startsWith('fix:')) {
+                fixes.push(message);
+              } else if (message.includes('BREAKING CHANGE:')) {
+                breaking.push(message);
+              } else {
+                other.push(message);
+              }
+            });
+            
+            // Generate release notes
+            let notes = `# Release ${{ steps.version.outputs.version }}\n\n`;
+            
+            if (breaking.length > 0) {
+              notes += `## ⚠️ Breaking Changes\n${breaking.map(m => `- ${m}`).join('\n')}\n\n`;
+            }
+            
+            if (features.length > 0) {
+              notes += `## ✨ Features\n${features.map(m => `- ${m}`).join('\n')}\n\n`;
+            }
+            
+            if (fixes.length > 0) {
+              notes += `## 🐛 Bug Fixes\n${fixes.map(m => `- ${m}`).join('\n')}\n\n`;
+            }
+            
+            if (other.length > 0) {
+              notes += `## 📝 Other Changes\n${other.map(m => `- ${m}`).join('\n')}\n\n`;
+            }
+            
+            notes += `## 📊 Statistics\n`;
+            notes += `- Total commits: ${commits.commits.length}\n`;
+            notes += `- Contributors: ${[...new Set(commits.commits.map(c => c.author.login))].length}\n`;
+            
+            core.setOutput('release-notes', notes);
+
+  create-release:
+    name: Create Release
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.version }}
+          release_name: Release ${{ needs.prepare-release.outputs.version }}
+          body: ${{ needs.prepare-release.outputs.release-notes }}
+          draft: false
+          prerelease: ${{ contains(needs.prepare-release.outputs.version, '-') }}
+
+      - name: Build release artifacts
+        run: |
+          # Create release archive
+          mkdir -p dist
+          tar -czf dist/slidegenie-backend-${{ needs.prepare-release.outputs.version }}.tar.gz \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='__pycache__' \
+            --exclude='.env' \
+            .
+          
+          # Generate checksums
+          cd dist
+          sha256sum *.tar.gz > checksums.txt
+
+      - name: Upload release artifacts
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create-release.outputs.upload_url }}
+          asset_path: ./dist/slidegenie-backend-${{ needs.prepare-release.outputs.version }}.tar.gz
+          asset_name: slidegenie-backend-${{ needs.prepare-release.outputs.version }}.tar.gz
+          asset_content_type: application/gzip
+
+  deploy-release:
+    name: Deploy Release
+    needs: [prepare-release, create-release]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [staging, production]
+    environment:
+      name: ${{ matrix.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to ${{ matrix.environment }}
+        uses: ./.github/workflows/ci-cd-pipeline.yml@main
+        with:
+          environment: ${{ matrix.environment }}
+
+      - name: Update feature flags
+        run: |
+          # Update feature flags for new version
+          python deployment/scripts/update-feature-flags.py \
+            --environment ${{ matrix.environment }} \
+            --version ${{ needs.prepare-release.outputs.version }} \
+            --config deployment/configs/feature-flags.json
+
+      - name: Notify release
+        uses: ./.github/actions/notify
+        with:
+          status: success
+          environment: ${{ matrix.environment }}
+          message: |
+            🚀 Release ${{ needs.prepare-release.outputs.version }} deployed to ${{ matrix.environment }}
+            
+            Changes:
+            ${{ needs.prepare-release.outputs.release-notes }}
+          slack-webhook: ${{ secrets.SLACK_WEBHOOK }}
+
+  post-release:
+    name: Post Release Tasks
+    needs: [prepare-release, deploy-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update documentation
+        run: |
+          # Update API documentation
+          npm run generate-docs
+          
+          # Update changelog
+          echo "${{ needs.prepare-release.outputs.release-notes }}" >> CHANGELOG.md
+          
+          # Commit changes
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add CHANGELOG.md docs/
+          git commit -m "docs: update documentation for ${{ needs.prepare-release.outputs.version }}"
+          git push
+
+      - name: Create hotfix branch
+        if: matrix.environment == 'production'
+        run: |
+          git checkout -b hotfix/${{ needs.prepare-release.outputs.version }}
+          git push origin hotfix/${{ needs.prepare-release.outputs.version }}
+
+      - name: Update version in main
+        run: |
+          # Update version in package.json, pyproject.toml, etc.
+          python deployment/scripts/bump-version.py \
+            --current ${{ needs.prepare-release.outputs.version }} \
+            --next patch
+          
+          git add .
+          git commit -m "chore: bump version after release"
+          git push

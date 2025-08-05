@@ -1,0 +1,193 @@
+version: '3.8'
+
+services:
+  # Test database
+  postgres-test:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: slidegenie_test
+      POSTGRES_PASSWORD: testpass123
+      POSTGRES_DB: slidegenie_test
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slidegenie_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and queues
+  redis-test:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-test-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO for S3-compatible storage
+  minio-test:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9001:9000"
+      - "9002:9001"
+    volumes:
+      - minio-test-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Elasticsearch for search (optional)
+  elasticsearch-test:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9201:9200"
+    volumes:
+      - elasticsearch-test-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Test runner service
+  test-runner:
+    build:
+      context: ..
+      dockerfile: Dockerfile.test
+    environment:
+      # Database
+      DATABASE_URL: postgresql://slidegenie_test:testpass123@postgres-test:5432/slidegenie_test
+      
+      # Redis
+      REDIS_URL: redis://redis-test:6379
+      
+      # MinIO
+      MINIO_ENDPOINT: minio-test:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_USE_SSL: "false"
+      
+      # Elasticsearch
+      ELASTICSEARCH_URL: http://elasticsearch-test:9200
+      
+      # Testing
+      TESTING: "true"
+      PYTHONPATH: /app
+      
+      # API Keys (use test keys)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-test-key}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-sk-test-key}
+      
+    volumes:
+      - ../app:/app/app
+      - ../tests:/app/tests
+      - ../alembic:/app/alembic
+      - test-results:/app/test-results
+      - coverage-data:/app/coverage-data
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      minio-test:
+        condition: service_healthy
+    command: >
+      sh -c "
+        poetry run alembic upgrade head &&
+        poetry run pytest -v --cov=app --cov-report=xml --cov-report=html
+      "
+
+  # Performance test runner
+  performance-test:
+    build:
+      context: ..
+      dockerfile: Dockerfile.test
+    environment:
+      DATABASE_URL: postgresql://slidegenie_test:testpass123@postgres-test:5432/slidegenie_test
+      REDIS_URL: redis://redis-test:6379
+      TESTING: "true"
+    volumes:
+      - ../app:/app/app
+      - ../tests:/app/tests
+      - performance-results:/app/performance-results
+    depends_on:
+      - postgres-test
+      - redis-test
+    command: >
+      sh -c "
+        cd tests/performance &&
+        pip install -r requirements.txt &&
+        python run_tests.py
+      "
+    profiles:
+      - performance
+
+  # Load test runner (using k6)
+  load-test:
+    image: grafana/k6:latest
+    environment:
+      BASE_URL: http://app:8000
+      VUS: 100
+      DURATION: 5m
+    volumes:
+      - ../tests/load:/scripts
+      - load-test-results:/results
+    command: run /scripts/load-test.js --out json=/results/results.json
+    profiles:
+      - load
+
+  # App service for E2E tests
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://slidegenie_test:testpass123@postgres-test:5432/slidegenie_test
+      REDIS_URL: redis://redis-test:6379
+      MINIO_ENDPOINT: minio-test:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      TESTING: "true"
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      minio-test:
+        condition: service_healthy
+    profiles:
+      - e2e
+
+volumes:
+  postgres-test-data:
+  redis-test-data:
+  minio-test-data:
+  elasticsearch-test-data:
+  test-results:
+  coverage-data:
+  performance-results:
+  load-test-results:
+
+networks:
+  default:
+    name: slidegenie-test-network

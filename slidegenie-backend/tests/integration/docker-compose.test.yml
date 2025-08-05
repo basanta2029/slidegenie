@@ -1,0 +1,192 @@
+version: '3.9'
+
+services:
+  # Test PostgreSQL with pgvector
+  test-postgres:
+    image: pgvector/pgvector:pg16
+    container_name: slidegenie_test_postgres
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: slidegenie_test
+      POSTGRES_INITDB_ARGS: "-c shared_preload_libraries=vector"
+    ports:
+      - "5433:5432"
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d slidegenie_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test_network
+
+  # Test Redis
+  test-redis:
+    image: redis:7-alpine
+    container_name: slidegenie_test_redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"
+    volumes:
+      - test_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test_network
+
+  # Test MinIO
+  test-minio:
+    image: minio/minio:latest
+    container_name: slidegenie_test_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: test_access_key
+      MINIO_ROOT_PASSWORD: test_secret_key
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - test_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test_network
+
+  # MinIO initialization
+  test-minio-init:
+    image: minio/mc:latest
+    container_name: slidegenie_test_minio_init
+    depends_on:
+      test-minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set testminio http://test-minio:9000 test_access_key test_secret_key;
+      /usr/bin/mc mb --ignore-existing testminio/slidegenie-test;
+      /usr/bin/mc mb --ignore-existing testminio/slidegenie-test-uploads;
+      /usr/bin/mc mb --ignore-existing testminio/slidegenie-test-exports;
+      /usr/bin/mc anonymous set download testminio/slidegenie-test-exports;
+      exit 0;
+      "
+    networks:
+      - test_network
+
+  # ClamAV for virus scanning tests
+  test-clamav:
+    image: clamav/clamav:latest
+    container_name: slidegenie_test_clamav
+    ports:
+      - "3311:3310"
+    volumes:
+      - test_clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    networks:
+      - test_network
+
+  # Test runner service
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: test
+    container_name: slidegenie_test_runner
+    command: >
+      sh -c "
+      alembic upgrade head &&
+      pytest tests/integration -v --cov=app --cov-report=html --cov-report=term
+      "
+    volumes:
+      - ../../app:/app/app
+      - ../../tests:/app/tests
+      - ../../alembic:/app/alembic
+      - test_coverage:/app/htmlcov
+    environment:
+      # Test database
+      POSTGRES_HOST: test-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: slidegenie_test
+      DATABASE_URL: postgresql+asyncpg://test_user:test_password@test-postgres:5432/slidegenie_test
+      
+      # Test Redis
+      REDIS_HOST: test-redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      
+      # Test MinIO
+      MINIO_ENDPOINT: test-minio:9000
+      MINIO_ACCESS_KEY: test_access_key
+      MINIO_SECRET_KEY: test_secret_key
+      MINIO_BUCKET_NAME: slidegenie-test
+      MINIO_USE_SSL: "false"
+      
+      # Test ClamAV
+      CLAMAV_HOST: test-clamav
+      CLAMAV_PORT: 3310
+      
+      # Test environment
+      ENVIRONMENT: test
+      TESTING: "true"
+      SECRET_KEY: test-secret-key-for-integration-testing-only
+      
+      # Disable external services
+      EMAIL_BACKEND: test
+      RATE_LIMIT_ENABLED: "false"
+      
+      # Mock AI services
+      ANTHROPIC_API_KEY: test-anthropic-key
+      OPENAI_API_KEY: test-openai-key
+      
+      # OAuth mock keys
+      GOOGLE_CLIENT_ID: test-google-client
+      GOOGLE_CLIENT_SECRET: test-google-secret
+      MICROSOFT_CLIENT_ID: test-microsoft-client
+      MICROSOFT_CLIENT_SECRET: test-microsoft-secret
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+      test-minio:
+        condition: service_healthy
+      test-clamav:
+        condition: service_healthy
+    networks:
+      - test_network
+
+  # Test report server (optional - for viewing coverage reports)
+  test-report-server:
+    image: nginx:alpine
+    container_name: slidegenie_test_reports
+    ports:
+      - "8080:80"
+    volumes:
+      - test_coverage:/usr/share/nginx/html:ro
+    networks:
+      - test_network
+    profiles:
+      - reports
+
+volumes:
+  test_postgres_data:
+  test_redis_data:
+  test_minio_data:
+  test_clamav_data:
+  test_coverage:
+
+networks:
+  test_network:
+    driver: bridge

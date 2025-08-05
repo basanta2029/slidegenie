@@ -1,0 +1,302 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      target-version:
+        description: 'Target version to rollback to (optional)'
+        required: false
+      reason:
+        description: 'Reason for rollback'
+        required: true
+      rollback-database:
+        description: 'Also rollback database migrations'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  deployments: write
+  actions: write
+
+jobs:
+  prepare-rollback:
+    name: Prepare Rollback
+    runs-on: ubuntu-latest
+    outputs:
+      current-deployment: ${{ steps.current.outputs.deployment }}
+      target-deployment: ${{ steps.target.outputs.deployment }}
+      rollback-plan: ${{ steps.plan.outputs.plan }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get current deployment
+        id: current
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployments = await github.rest.repos.listDeployments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              environment: '${{ inputs.environment }}',
+              per_page: 10
+            });
+            
+            const currentDeployment = deployments.data.find(d => 
+              d.statuses && d.statuses[0]?.state === 'success'
+            );
+            
+            core.setOutput('deployment', JSON.stringify(currentDeployment));
+            console.log('Current deployment:', currentDeployment);
+
+      - name: Determine target deployment
+        id: target
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let targetDeployment;
+            
+            if ('${{ inputs.target-version }}') {
+              // Find deployment with specific version
+              const deployments = await github.rest.repos.listDeployments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                environment: '${{ inputs.environment }}',
+                per_page: 100
+              });
+              
+              targetDeployment = deployments.data.find(d => 
+                d.ref === '${{ inputs.target-version }}' && 
+                d.statuses && d.statuses[0]?.state === 'success'
+              );
+            } else {
+              // Find last successful deployment
+              const deployments = await github.rest.repos.listDeployments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                environment: '${{ inputs.environment }}',
+                per_page: 20
+              });
+              
+              const current = JSON.parse('${{ steps.current.outputs.deployment }}');
+              targetDeployment = deployments.data.find(d => 
+                d.id !== current.id &&
+                d.statuses && d.statuses[0]?.state === 'success'
+              );
+            }
+            
+            if (!targetDeployment) {
+              core.setFailed('No suitable deployment found for rollback');
+              return;
+            }
+            
+            core.setOutput('deployment', JSON.stringify(targetDeployment));
+            console.log('Target deployment:', targetDeployment);
+
+      - name: Generate rollback plan
+        id: plan
+        run: |
+          CURRENT=$(echo '${{ steps.current.outputs.deployment }}' | jq -r '.sha')
+          TARGET=$(echo '${{ steps.target.outputs.deployment }}' | jq -r '.sha')
+          
+          cat > rollback-plan.json << EOF
+          {
+            "environment": "${{ inputs.environment }}",
+            "current_version": "$CURRENT",
+            "target_version": "$TARGET",
+            "rollback_database": ${{ inputs.rollback-database }},
+            "reason": "${{ inputs.reason }}",
+            "steps": [
+              "1. Create backup of current state",
+              "2. Switch blue-green deployment to previous version",
+              "3. Verify service health",
+              "4. Rollback database if requested",
+              "5. Update monitoring and alerts",
+              "6. Notify stakeholders"
+            ]
+          }
+          EOF
+          
+          echo "plan=$(cat rollback-plan.json | jq -c .)" >> $GITHUB_OUTPUT
+
+  execute-rollback:
+    name: Execute Rollback
+    needs: prepare-rollback
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}-rollback
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(needs.prepare-rollback.outputs.target-deployment).sha }}
+
+      - name: Create rollback deployment
+        id: deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: '${{ fromJSON(needs.prepare-rollback.outputs.target-deployment).sha }}',
+              environment: '${{ inputs.environment }}',
+              description: 'Rollback: ${{ inputs.reason }}',
+              required_contexts: [],
+              auto_merge: false,
+              production_environment: '${{ inputs.environment }}' === 'production'
+            });
+            
+            return deployment.data.id;
+
+      - name: Backup current state
+        run: |
+          # Backup current deployment state
+          kubectl get all -n ${{ inputs.environment }} -o yaml > /tmp/current-state.yaml
+          
+          # Upload to S3
+          aws s3 cp /tmp/current-state.yaml \
+            s3://slidegenie-backups/${{ inputs.environment }}/rollbacks/$(date +%Y%m%d_%H%M%S)/
+
+      - name: Execute blue-green rollback
+        uses: ./.github/actions/deploy-blue-green
+        with:
+          environment: ${{ inputs.environment }}
+          image-tag: ${{ fromJSON(needs.prepare-rollback.outputs.target-deployment).sha }}
+          kube-config: ${{ secrets[format('{0}_KUBE_CONFIG', inputs.environment)] }}
+          deploy-key: ${{ secrets[format('{0}_DEPLOY_KEY', inputs.environment)] }}
+
+      - name: Rollback database
+        if: inputs.rollback-database
+        run: |
+          # Get database migration versions
+          CURRENT_VERSION=$(alembic current | grep -oE '[a-f0-9]{12}' | head -1)
+          
+          # Find target migration version from deployment time
+          TARGET_TIME=$(echo '${{ needs.prepare-rollback.outputs.target-deployment }}' | jq -r '.created_at')
+          TARGET_VERSION=$(python deployment/scripts/find-migration-version.py --timestamp "$TARGET_TIME")
+          
+          echo "Rolling back database from $CURRENT_VERSION to $TARGET_VERSION"
+          
+          # Execute rollback
+          alembic downgrade $TARGET_VERSION
+
+      - name: Verify rollback
+        run: |
+          # Health checks
+          deployment/scripts/health-check.sh ${{ inputs.environment }}
+          
+          # Smoke tests
+          deployment/scripts/smoke-tests.sh ${{ inputs.environment }}
+          
+          # Compare with expected state
+          deployment/scripts/verify-rollback.sh \
+            ${{ inputs.environment }} \
+            ${{ fromJSON(needs.prepare-rollback.outputs.target-deployment).sha }}
+
+      - name: Update deployment status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment.outputs.result }},
+              state: '${{ job.status }}',
+              description: 'Rollback ${{ job.status }}: ${{ inputs.reason }}',
+              environment_url: 'https://${{ inputs.environment }}.slidegenie.app'
+            });
+
+  post-rollback:
+    name: Post Rollback Actions
+    needs: [prepare-rollback, execute-rollback]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create incident report
+        run: |
+          cat > incident-report.md << EOF
+          # Rollback Incident Report
+          
+          **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Environment**: ${{ inputs.environment }}
+          **Status**: ${{ needs.execute-rollback.result }}
+          
+          ## Rollback Details
+          - **From Version**: ${{ fromJSON(needs.prepare-rollback.outputs.current-deployment).sha }}
+          - **To Version**: ${{ fromJSON(needs.prepare-rollback.outputs.target-deployment).sha }}
+          - **Database Rollback**: ${{ inputs.rollback-database }}
+          - **Reason**: ${{ inputs.reason }}
+          
+          ## Timeline
+          - Rollback initiated: ${{ github.event.created_at }}
+          - Rollback completed: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          ## Impact
+          - Service downtime: Minimal (blue-green deployment)
+          - Data impact: ${{ inputs.rollback-database && 'Database rolled back' || 'None' }}
+          
+          ## Follow-up Actions
+          1. Root cause analysis required
+          2. Update deployment procedures if needed
+          3. Review monitoring alerts
+          EOF
+          
+          # Upload report
+          aws s3 cp incident-report.md \
+            s3://slidegenie-reports/rollbacks/$(date +%Y%m%d_%H%M%S).md
+
+      - name: Notify stakeholders
+        uses: ./.github/actions/notify
+        with:
+          status: ${{ needs.execute-rollback.result }}
+          environment: ${{ inputs.environment }}
+          message: |
+            🔄 Rollback ${{ needs.execute-rollback.result }} for ${{ inputs.environment }}
+            
+            **Reason**: ${{ inputs.reason }}
+            **From**: ${{ fromJSON(needs.prepare-rollback.outputs.current-deployment).sha }}
+            **To**: ${{ fromJSON(needs.prepare-rollback.outputs.target-deployment).sha }}
+            
+            ${{ inputs.rollback-database && '⚠️ Database was also rolled back' || '' }}
+          slack-webhook: ${{ secrets.SLACK_WEBHOOK }}
+          pagerduty-token: ${{ secrets.PAGERDUTY_TOKEN }}
+
+      - name: Create follow-up issue
+        if: needs.execute-rollback.result == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Post-mortem: Rollback in ${context.payload.inputs.environment}`,
+              body: `
+                ## Rollback Post-mortem Required
+                
+                A rollback was performed in **${context.payload.inputs.environment}** environment.
+                
+                ### Details
+                - **Reason**: ${context.payload.inputs.reason}
+                - **Rolled back from**: ${JSON.parse('${{ needs.prepare-rollback.outputs.current-deployment }}').sha}
+                - **Rolled back to**: ${JSON.parse('${{ needs.prepare-rollback.outputs.target-deployment }}').sha}
+                - **Database rollback**: ${context.payload.inputs['rollback-database']}
+                
+                ### Required Actions
+                - [ ] Conduct root cause analysis
+                - [ ] Document lessons learned
+                - [ ] Update deployment procedures if needed
+                - [ ] Review and update monitoring
+                - [ ] Communicate findings to team
+              `,
+              labels: ['incident', 'post-mortem', 'high-priority']
+            });

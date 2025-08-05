@@ -1,0 +1,104 @@
+{
+  "dashboard": {
+    "title": "SlideGenie API Performance",
+    "panels": [
+      {
+        "title": "Request Rate",
+        "targets": [
+          {
+            "expr": "rate(slidegenie_requests_total[5m])",
+            "legendFormat": "{{method}} {{endpoint}}"
+          }
+        ],
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}
+      },
+      {
+        "title": "Response Time Percentiles",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(slidegenie_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.90, rate(slidegenie_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P90"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(slidegenie_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(slidegenie_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P99"
+          }
+        ],
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}
+      },
+      {
+        "title": "Error Rate",
+        "targets": [
+          {
+            "expr": "rate(slidegenie_requests_total{status=~\"4..|5..\"}[5m]) / rate(slidegenie_requests_total[5m]) * 100",
+            "legendFormat": "Error %"
+          }
+        ],
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+      },
+      {
+        "title": "Active Connections",
+        "targets": [
+          {
+            "expr": "slidegenie_active_connections",
+            "legendFormat": "{{type}}"
+          }
+        ],
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}
+      },
+      {
+        "title": "Queue Sizes",
+        "targets": [
+          {
+            "expr": "slidegenie_queue_size",
+            "legendFormat": "{{queue_name}}"
+          }
+        ],
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8}
+      },
+      {
+        "title": "Database Pool",
+        "targets": [
+          {
+            "expr": "slidegenie_db_pool_size",
+            "legendFormat": "Pool Size"
+          },
+          {
+            "expr": "slidegenie_cache_hit_rate * 100",
+            "legendFormat": "Cache Hit Rate %"
+          }
+        ],
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8}
+      },
+      {
+        "title": "System Resources",
+        "targets": [
+          {
+            "expr": "slidegenie_cpu_usage_percent",
+            "legendFormat": "CPU %"
+          },
+          {
+            "expr": "slidegenie_memory_usage_bytes{type=\"used\"} / 1024 / 1024 / 1024",
+            "legendFormat": "Memory GB"
+          }
+        ],
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 24, "w": 24, "h": 8}
+      }
+    ]
+  }
+}

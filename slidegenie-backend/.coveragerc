@@ -1,0 +1,81 @@
+[run]
+source = app
+branch = True
+parallel = True
+omit = 
+    */tests/*
+    */migrations/*
+    */__init__.py
+    */config.py
+    */main.py
+    */venv/*
+    */.venv/*
+    */site-packages/*
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+sort = Cover
+exclude_lines =
+    # Standard pragma
+    pragma: no cover
+    
+    # Debug-only code
+    def __repr__
+    def __str__
+    
+    # Defensive programming
+    raise AssertionError
+    raise NotImplementedError
+    
+    # Non-runnable code
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @overload
+    
+    # Abstract methods
+    @(abc\.)?abstractmethod
+    @(abc\.)?abstractproperty
+    
+    # Protocol methods
+    class .*\bProtocol\):
+    
+    # Type stubs
+    \.\.\.$
+    pass
+
+[html]
+directory = htmlcov
+title = SlideGenie Test Coverage Report
+show_contexts = True
+
+[xml]
+output = coverage.xml
+
+[json]
+output = coverage.json
+pretty_print = True
+show_contexts = True
+
+[paths]
+source =
+    app/
+    */app/
+    */site-packages/app
+
+[coverage:run]
+plugins = 
+    # Plugin for better async coverage
+    coverage_conditional_plugin
+
+[coverage:report]
+# Fail if coverage is below threshold
+fail_under = 80
+
+# Ignore specific patterns
+ignore_errors = True
+
+[coverage:html]
+# Add extra CSS for better visualization
+extra_css = tests/coverage_extra.css

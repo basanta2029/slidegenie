@@ -1,0 +1,133 @@
+{
+	"meta": {
+		"generatedAt": "2025-08-04T19:37:17.699Z",
+		"tasksAnalyzed": 15,
+		"totalTasks": 15,
+		"analysisCount": 15,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": true
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Setup Next.js Frontend Project Structure",
+			"complexityScore": 5,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Break down the Next.js frontend setup task into subtasks covering: 1) Project initialization with TypeScript, 2) Dependency installation and configuration, 3) Tailwind CSS setup with theme configuration, 4) Project structure and folder organization, 5) Component library setup with Radix UI, and 6) Authentication context and providers setup.",
+			"reasoning": "This task involves standard frontend setup procedures with modern tools. The complexity is moderate (5/10) because it requires configuring multiple technologies (Next.js, TypeScript, Zustand, Tailwind, Radix UI) together, but follows well-established patterns. The task is well-defined with clear steps but requires careful integration of various libraries and proper configuration."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Setup FastAPI Backend and Database",
+			"complexityScore": 6,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break down the FastAPI backend setup task into subtasks covering: 1) Python environment setup, 2) FastAPI project structure creation, 3) PostgreSQL database configuration and connection, 4) Redis cache implementation, 5) Celery task queue setup with RabbitMQ, 6) Alembic migration configuration, and 7) Basic API health check endpoint implementation.",
+			"reasoning": "Setting up a backend with multiple services increases complexity (6/10). This task requires configuring FastAPI, PostgreSQL, Redis, Celery, and RabbitMQ, which involves understanding distributed systems concepts. Each component needs proper configuration and integration, and the developer must ensure they work together seamlessly while following best practices for API design and database management."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Implement User Authentication System",
+			"complexityScore": 7,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Break down the authentication system implementation into subtasks covering: 1) User database model creation, 2) JWT token generation and validation, 3) Authentication endpoints implementation (register, login, logout, refresh), 4) Password management (hashing, reset flow), 5) Security measures (HTTP-only cookies, CSRF protection), 6) Rate limiting implementation, 7) Frontend authentication components, and 8) Protected route middleware.",
+			"reasoning": "Authentication is security-critical with many edge cases (7/10). This task requires implementing secure token handling, password management, protection against various attacks (CSRF, brute force), and creating a seamless user experience. The complexity comes from needing to implement both backend security measures and frontend authentication flows while ensuring everything remains secure and user-friendly."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Develop Presentation Data Models and API",
+			"complexityScore": 6,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break down the presentation data models and API task into subtasks covering: 1) Database model implementation (presentations, slides, templates, etc.), 2) Pydantic schema creation, 3) CRUD API endpoint implementation, 4) Pagination, filtering, and sorting functionality, 5) Error handling and validation, 6) Authorization and access control, and 7) Metadata tracking implementation.",
+			"reasoning": "This task involves designing and implementing complex relational data models with multiple entity types and relationships (6/10). It requires creating a comprehensive API with advanced features like pagination, filtering, and proper error handling. The authorization rules add another layer of complexity, as does implementing soft delete functionality and metadata tracking."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Implement AI Content Generation Engine",
+			"complexityScore": 9,
+			"recommendedSubtasks": 10,
+			"expansionPrompt": "Break down the AI content generation engine implementation into subtasks covering: 1) LLM API integration (Claude 3 and GPT-4), 2) Prompt engineering for different slide types, 3) Text processing pipeline development, 4) Generation job queue with Celery, 5) Status tracking system, 6) Error handling and retry logic, 7) Caching implementation, 8) API endpoint creation, 9) Progress reporting, and 10) Output quality validation.",
+			"reasoning": "AI content generation is highly complex (9/10) as it involves integrating with advanced LLMs, designing sophisticated prompts for different academic content types, implementing robust text processing pipelines, and managing asynchronous generation jobs. The system must handle errors gracefully, implement caching for performance, and provide accurate progress reporting. Ensuring consistent, high-quality output adds significant complexity."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Develop PDF Processing and Content Extraction",
+			"complexityScore": 8,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Break down the PDF processing and content extraction task into subtasks covering: 1) PDF upload functionality implementation, 2) Text extraction with structure preservation, 3) Figure and table extraction, 4) Mathematical equation recognition, 5) Section identification algorithm, 6) Reference extraction and parsing, 7) Processing queue for large PDFs, and 8) Frontend file upload component development.",
+			"reasoning": "PDF processing is technically challenging (8/10) due to the complexity of extracting structured content from unstructured documents. This task requires implementing sophisticated algorithms for identifying document sections, extracting figures/tables, and recognizing mathematical equations. The variety of PDF formats and layouts adds significant complexity, as does handling large files efficiently and providing accurate progress tracking."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Create Presentation Template System",
+			"complexityScore": 6,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Break down the presentation template system task into subtasks covering: 1) Core academic template design and implementation, 2) Template database model and storage system, 3) Template selection and preview functionality, 4) Customization options implementation, 5) Template application logic, and 6) Template management interface for admins.",
+			"reasoning": "Creating a template system has moderate complexity (6/10) as it requires designing flexible, customizable templates that can be applied consistently across presentations. The system must support various academic formats with appropriate styling, allow for customization while maintaining design integrity, and include management features. The implementation must balance flexibility with ease of use."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Implement Citation and Reference Management",
+			"complexityScore": 7,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break down the citation and reference management task into subtasks covering: 1) Reference database model implementation, 2) Citation formatting for multiple academic styles, 3) External reference import functionality (BibTeX, Zotero, Mendeley), 4) DOI lookup and auto-fill feature, 5) Bibliography slide generation, 6) In-text citation linking, and 7) Reference management UI development.",
+			"reasoning": "Citation management is complex (7/10) due to the need to support multiple academic citation formats with precise formatting rules. The system must correctly parse and format references from various sources, handle external integrations with reference managers, implement DOI lookups, and create properly formatted bibliography slides. The complexity comes from ensuring accuracy across different citation styles while providing a user-friendly interface."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Develop Presentation Editor Interface",
+			"complexityScore": 8,
+			"recommendedSubtasks": 9,
+			"expansionPrompt": "Break down the presentation editor interface task into subtasks covering: 1) Slide canvas implementation with proper sizing, 2) Slide thumbnail navigation with reordering, 3) Text editing with formatting options, 4) Media management (images, tables, equations), 5) Slide layout and transition implementation, 6) Speaker notes functionality, 7) History management (undo/redo, auto-save), 8) Master slide editing, and 9) Keyboard shortcuts and accessibility.",
+			"reasoning": "Building a WYSIWYG presentation editor is highly complex (8/10) as it requires implementing a sophisticated UI with multiple interactive elements. The editor must handle various content types (text, images, tables, equations), support complex operations like slide reordering and master slides, maintain editing history, and provide a responsive, intuitive user experience. The implementation must also consider performance with large presentations."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Implement Multi-format Export System",
+			"complexityScore": 8,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Break down the multi-format export system task into subtasks covering: 1) PowerPoint (.pptx) export implementation, 2) PDF export with various options, 3) LaTeX/Beamer export development, 4) HTML5 presentation export, 5) Export queue for large presentations, 6) Progress tracking implementation, 7) Export settings UI development, and 8) Email delivery option implementation.",
+			"reasoning": "Creating a multi-format export system is complex (8/10) because it requires implementing converters for multiple presentation formats (PPTX, PDF, LaTeX, HTML), each with its own specifications and challenges. The system must accurately preserve formatting, handle various content types (text, images, equations), manage large exports asynchronously, and provide progress tracking. Supporting different export options and delivery methods adds additional complexity."
+		},
+		{
+			"taskId": 11,
+			"taskTitle": "Implement Real-time Collaboration Features",
+			"complexityScore": 9,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Break down the real-time collaboration features task into subtasks covering: 1) WebSocket server setup with FastAPI, 2) Collaboration session management, 3) Real-time data synchronization, 4) User presence and cursor position sharing, 5) Commenting system implementation, 6) Permission management, 7) Conflict resolution for simultaneous edits, and 8) Collaboration UI components development.",
+			"reasoning": "Real-time collaboration is highly complex (9/10) as it requires implementing sophisticated synchronization mechanisms to handle concurrent edits from multiple users. The system must maintain consistency across clients, resolve conflicts, track user presence, and manage permissions—all in real-time. WebSocket communication adds complexity for handling connection issues, and the commenting system requires proper threading and notification handling."
+		},
+		{
+			"taskId": 12,
+			"taskTitle": "Develop User Dashboard and Presentation Management",
+			"complexityScore": 6,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Break down the user dashboard and presentation management task into subtasks covering: 1) Dashboard layout design and implementation, 2) Presentation list and grid views, 3) Search and filtering functionality, 4) Organization features (folders, tags, favorites), 5) Bulk operations implementation, and 6) Responsive design for different devices.",
+			"reasoning": "The dashboard implementation has moderate complexity (6/10) as it requires creating an intuitive interface with multiple views and organization features. The system must support efficient searching, filtering, and bulk operations while maintaining good performance with potentially large numbers of presentations. The responsive design requirements add complexity to ensure a good user experience across different devices."
+		},
+		{
+			"taskId": 13,
+			"taskTitle": "Implement Subscription and Payment System",
+			"complexityScore": 7,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break down the subscription and payment system task into subtasks covering: 1) Stripe integration for payment processing, 2) Subscription plan implementation based on pricing tiers, 3) Subscription management API, 4) Feature access control based on subscription, 5) Usage limits enforcement, 6) Payment method management, and 7) Subscription analytics implementation.",
+			"reasoning": "Implementing a subscription system has significant complexity (7/10) due to the need to handle financial transactions securely, manage recurring billing, and control feature access based on subscription levels. The system must enforce usage limits, handle upgrades/downgrades, process payments through Stripe, generate invoices, and track subscription metrics. Proper error handling and security are critical for payment processing."
+		},
+		{
+			"taskId": 14,
+			"taskTitle": "Implement Analytics and Monitoring System",
+			"complexityScore": 7,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break down the analytics and monitoring system task into subtasks covering: 1) Prometheus and Grafana setup for performance monitoring, 2) ELK Stack implementation for logging, 3) DataDog configuration for APM, 4) Custom analytics tracking implementation, 5) Presentation analytics development, 6) Admin dashboard creation, and 7) Alerting system implementation.",
+			"reasoning": "Building a comprehensive analytics system is complex (7/10) as it requires integrating multiple monitoring tools (Prometheus, Grafana, ELK Stack, DataDog) and implementing custom tracking for business metrics. The system must collect, process, and visualize data from various sources, provide actionable insights, and alert on critical issues. Implementing proper data aggregation and visualization while ensuring performance adds significant complexity."
+		},
+		{
+			"taskId": 15,
+			"taskTitle": "Implement Security and Compliance Features",
+			"complexityScore": 8,
+			"recommendedSubtasks": 8,
+			"expansionPrompt": "Break down the security and compliance features task into subtasks covering: 1) Data encryption implementation (at rest and in transit), 2) Security headers and protection mechanisms, 3) Rate limiting implementation, 4) Audit logging system, 5) Data isolation and deletion functionality, 6) GDPR compliance features, 7) FERPA compliance for educational records, and 8) Security scanning in CI/CD pipeline.",
+			"reasoning": "Security and compliance implementation is highly complex (8/10) due to the critical nature of protecting user data and meeting regulatory requirements. The task requires implementing multiple security layers (encryption, access controls, protection mechanisms), ensuring regulatory compliance (GDPR, FERPA), creating comprehensive audit logs, and establishing secure development practices. The implementation must be thorough and leave no vulnerabilities."
+		}
+	]
+}

@@ -1,0 +1,9 @@
+# Ignore all result files
+*.json
+*.html
+*.csv
+*.png
+*.md
+
+# Keep the directory
+!.gitignore
